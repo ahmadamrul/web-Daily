@@ -31,6 +31,7 @@ export const state = {
   grupAktifId: load('grupAktifId', 'umum'),
   darkMode: load('darkMode', false),
   unlocked: load('unlocked', !config.password),
+  accent: load('accent', config.accentColor),
   now: new Date(),
 
   // transient UI-only state
@@ -42,6 +43,8 @@ export const state = {
   passwordSalah: false,
   formLinkTerbuka: false,
   formGrupTerbuka: false,
+  searchLinks: '',
+  searchCatatan: '',
   notif: null,
   konfirmasi: null, // { msg, onYes }
 }
@@ -79,4 +82,16 @@ export function setDarkMode(v) {
 export function setUnlocked(v) {
   state.unlocked = v
   persist('unlocked', v)
+}
+
+export function setAccent(color) {
+  state.accent = color
+  persist('accent', color)
+}
+
+export function reorderArray(arr, fromIdx, toIdx) {
+  const copy = [...arr]
+  const [item] = copy.splice(fromIdx, 1)
+  copy.splice(toIdx, 0, item)
+  return copy
 }

@@ -7,8 +7,10 @@ import {
   setGrupAktifId,
   setDarkMode,
   setUnlocked,
+  setAccent,
+  reorderArray,
 } from './store.js'
-import { config } from './config.js'
+import { config, ACCENT_PRESETS } from './config.js'
 import { lockedTemplate, dashboardTemplate } from './templates.js'
 
 const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
@@ -23,11 +25,15 @@ let clockTimer = null
 
 export function initApp(el) {
   root = el
-  document.documentElement.style.setProperty('--accent', config.accentColor)
+  applyAccent()
   applyTheme()
   wireEvents()
   render()
   startClock()
+}
+
+function applyAccent() {
+  document.documentElement.style.setProperty('--accent', state.accent)
 }
 
 function applyTheme() {
@@ -49,24 +55,45 @@ function tanggalLabel() {
   return `${HARI[state.now.getDay()]}, ${state.now.getDate()} ${BULAN[state.now.getMonth()]} ${state.now.getFullYear()}`
 }
 
+function matches(haystack, query) {
+  return haystack.toLowerCase().includes(query.trim().toLowerCase())
+}
+
 function viewModel() {
+  const q = state.searchLinks.trim()
+  const filteredLinks = state.links
+    .map((lk, i) => ({ ...lk, _idx: i }))
+    .filter((lk) => !q || matches(lk.nama, q) || matches(lk.url, q))
+
+  const gq = state.searchCatatan.trim()
+  const grupCatatanTampil = state.grupCatatan.filter(
+    (g) => !gq || matches(g.nama, gq) || matches(state.catatanByGrup[g.id] ?? '', gq)
+  )
+
   return {
     tanggal: tanggalLabel(),
     salam: greeting(),
     jam: `${pad(state.now.getHours())}:${pad(state.now.getMinutes())}`,
     darkMode: state.darkMode,
     showClock: config.showClock,
-    links: state.links,
+    accentPresets: ACCENT_PRESETS.map((p) => ({ ...p, active: p.color === state.accent })),
+    links: filteredLinks,
+    totalLinks: state.links.length,
+    searchLinks: state.searchLinks,
     formLinkTerbuka: state.formLinkTerbuka,
     draftNama: state.draftNama,
     draftUrl: state.draftUrl,
     todos: state.todos,
     draftTodo: state.draftTodo,
     grupCatatan: state.grupCatatan,
+    grupCatatanTampil,
+    totalGrup: state.grupCatatan.length,
+    searchCatatan: state.searchCatatan,
     grupAktifId: state.grupAktifId,
     formGrupTerbuka: state.formGrupTerbuka,
     draftNamaGrup: state.draftNamaGrup,
     catatanAktif: state.catatanByGrup[state.grupAktifId] ?? '',
+    grupAktifNama: state.grupCatatan.find((g) => g.id === state.grupAktifId)?.nama ?? 'Umum',
     showLockButton: !!config.password,
     notif: state.notif,
     konfirmasi: state.konfirmasi,
@@ -74,11 +101,31 @@ function viewModel() {
 }
 
 function render() {
+  const active = document.activeElement
+  const focusInfo =
+    active && active.dataset && active.dataset.bind && root.contains(active)
+      ? { bind: active.dataset.bind, start: active.selectionStart, end: active.selectionEnd }
+      : null
+
   const pwSet = !!config.password
   const locked = pwSet && !state.unlocked
   root.innerHTML = locked
     ? lockedTemplate({ passwordSalah: state.passwordSalah, draftPassword: state.draftPassword })
     : dashboardTemplate(viewModel())
+
+  if (focusInfo) {
+    const el = root.querySelector(`[data-bind="${focusInfo.bind}"]`)
+    if (el) {
+      el.focus()
+      if (typeof focusInfo.start === 'number' && el.setSelectionRange) {
+        try {
+          el.setSelectionRange(focusInfo.start, focusInfo.end)
+        } catch {
+          /* setSelectionRange unsupported for this input type (e.g. some browsers/number inputs) */
+        }
+      }
+    }
+  }
 }
 
 function startClock() {
@@ -216,6 +263,7 @@ function exportData() {
 // ---- event wiring (delegated, attached once) ----
 
 const DRAFT_FIELDS = new Set(['draftNama', 'draftUrl', 'draftTodo', 'draftNamaGrup', 'draftPassword'])
+const SEARCH_FIELDS = new Set(['searchLinks', 'searchCatatan'])
 
 function wireEvents() {
   root.addEventListener('input', (e) => {
@@ -227,10 +275,59 @@ function wireEvents() {
       setCatatanByGrup({ ...state.catatanByGrup, [state.grupAktifId]: e.target.value })
       return
     }
+    if (SEARCH_FIELDS.has(bind)) {
+      // Search filters live as you type — render() preserves this input's
+      // focus/cursor itself, so a rebuild here doesn't interrupt typing.
+      state[bind] = e.target.value
+      render()
+      return
+    }
     if (DRAFT_FIELDS.has(bind)) {
       state[bind] = e.target.value
       if (bind === 'draftPassword') state.passwordSalah = false
     }
+  })
+
+  root.addEventListener('dragstart', (e) => {
+    const el = e.target.closest('[data-drag]')
+    if (!el) return
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', JSON.stringify({ list: el.dataset.drag, idx: Number(el.dataset.idx) }))
+    el.classList.add('dragging')
+  })
+
+  root.addEventListener('dragover', (e) => {
+    const el = e.target.closest('[data-drag]')
+    if (!el) return
+    e.preventDefault()
+    el.classList.add('drag-over')
+  })
+
+  root.addEventListener('dragleave', (e) => {
+    const el = e.target.closest('[data-drag]')
+    if (el) el.classList.remove('drag-over')
+  })
+
+  root.addEventListener('dragend', () => {
+    root.querySelectorAll('.dragging').forEach((n) => n.classList.remove('dragging'))
+    root.querySelectorAll('.drag-over').forEach((n) => n.classList.remove('drag-over'))
+  })
+
+  root.addEventListener('drop', (e) => {
+    const el = e.target.closest('[data-drag]')
+    if (!el) return
+    e.preventDefault()
+    let data
+    try {
+      data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}')
+    } catch {
+      return
+    }
+    const toIdx = Number(el.dataset.idx)
+    if (data.list !== el.dataset.drag || data.idx === toIdx) return
+    if (data.list === 'link') setLinks(reorderArray(state.links, data.idx, toIdx))
+    if (data.list === 'todo') setTodos(reorderArray(state.todos, data.idx, toIdx))
+    render()
   })
 
   root.addEventListener('keydown', (e) => {
@@ -256,6 +353,11 @@ function wireEvents() {
       case 'toggle-dark':
         setDarkMode(!state.darkMode)
         applyTheme()
+        render()
+        break
+      case 'set-accent':
+        setAccent(btn.dataset.color)
+        applyAccent()
         render()
         break
       case 'export':

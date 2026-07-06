@@ -34,7 +34,21 @@ export function lockedTemplate({ passwordSalah, draftPassword }) {
   `
 }
 
-function headerTemplate({ tanggal, salam, darkMode, showClock, jam }) {
+function headerTemplate({ tanggal, salam, darkMode, showClock, jam, accentPresets }) {
+  const swatches = accentPresets
+    .map(
+      (p) => `
+      <button
+        class="swatch ${p.active ? 'active' : ''}"
+        data-action="set-accent"
+        data-color="${esc(p.color)}"
+        style="background:${esc(p.color)}"
+        title="${esc(p.label)}"
+      ></button>
+    `
+    )
+    .join('')
+
   return `
     <header class="app-header">
       <div>
@@ -42,6 +56,7 @@ function headerTemplate({ tanggal, salam, darkMode, showClock, jam }) {
         <h1 class="greeting">${esc(salam)}</h1>
       </div>
       <div class="header-right">
+        <div class="swatch-row" title="Warna aksen">${swatches}</div>
         <button class="btn-text" data-action="toggle-dark" title="Dark mode">${darkMode ? '☀️ Terang' : '🌙 Gelap'}</button>
         ${showClock ? `<div class="clock" id="clock">${esc(jam)}</div>` : ''}
       </div>
@@ -49,27 +64,30 @@ function headerTemplate({ tanggal, salam, darkMode, showClock, jam }) {
   `
 }
 
-function linksTemplate({ links, formLinkTerbuka, draftNama, draftUrl }) {
+function linksTemplate({ links, formLinkTerbuka, draftNama, draftUrl, searchLinks, totalLinks }) {
   const cards = links
     .map(
-      (lk, i) => `
-      <div class="link-card">
+      (lk) => `
+      <div class="link-card" data-drag="link" data-idx="${lk._idx}">
+        <span class="drag-handle" draggable="true" title="Seret untuk urutkan">⠿</span>
         <a href="${esc(lk.url)}" target="_blank" rel="noopener" class="link-card-body">
           <div class="link-name">${esc(lk.nama)}</div>
           <div class="link-domain">${esc(hostnameOf(lk.url))}</div>
         </a>
-        <button class="icon-btn danger-hover" data-action="delete-link" data-idx="${i}" title="Hapus link">×</button>
+        <button class="icon-btn danger-hover" data-action="delete-link" data-idx="${lk._idx}" title="Hapus link">×</button>
       </div>
     `
     )
     .join('')
+
+  const noMatch = totalLinks > 0 && links.length === 0 ? '<div class="empty-state">Tidak ada link yang cocok.</div>' : ''
 
   return `
     <section class="section">
       <div class="section-head">
         <h2 class="section-title">Link cepat</h2>
         <div class="section-actions">
-          <button class="btn-text small" data-action="export">⬇ Export</button>
+          <button class="btn-text small" data-action="export" title="Data hanya tersimpan di browser ini — export rutin untuk backup">⬇ Export</button>
           <button class="btn-text small" data-action="toggle-link-form">${formLinkTerbuka ? '✕ Tutup' : '+ Tambah link'}</button>
         </div>
       </div>
@@ -84,7 +102,15 @@ function linksTemplate({ links, formLinkTerbuka, draftNama, draftUrl }) {
       `
           : ''
       }
+      ${
+        totalLinks > 3
+          ? `
+        <input class="input search-input" data-bind="searchLinks" value="${esc(searchLinks)}" placeholder="🔍 Cari link…" style="margin-top:14px" />
+      `
+          : ''
+      }
       <div class="link-grid">${cards}</div>
+      ${noMatch}
     </section>
   `
 }
@@ -93,7 +119,8 @@ function todosTemplate({ todos, draftTodo }) {
   const rows = todos
     .map(
       (td, i) => `
-      <div class="todo-row">
+      <div class="todo-row" data-drag="todo" data-idx="${i}">
+        <span class="drag-handle" draggable="true" title="Seret untuk urutkan">⠿</span>
         <button class="checkbox ${td.selesai ? 'checked' : ''}" data-action="toggle-todo" data-idx="${i}">${td.selesai ? '✓' : ''}</button>
         <span class="todo-text ${td.selesai ? 'done' : ''}">${esc(td.teks)}</span>
         <button class="icon-btn danger-hover" data-action="delete-todo" data-idx="${i}" title="Hapus">×</button>
@@ -115,8 +142,8 @@ function todosTemplate({ todos, draftTodo }) {
   `
 }
 
-function notesTemplate({ grupCatatan, grupAktifId, formGrupTerbuka, draftNamaGrup, catatanAktif }) {
-  const chips = grupCatatan
+function notesTemplate({ grupCatatanTampil, grupAktifId, formGrupTerbuka, draftNamaGrup, catatanAktif, searchCatatan, grupAktifNama, totalGrup }) {
+  const chips = grupCatatanTampil
     .map(
       (g) => `
       <div class="chip-wrap">
@@ -127,7 +154,10 @@ function notesTemplate({ grupCatatan, grupAktifId, formGrupTerbuka, draftNamaGru
     )
     .join('')
 
-  const grupAktifNama = grupCatatan.find((g) => g.id === grupAktifId)?.nama ?? 'Umum'
+  const noMatch =
+    totalGrup > 0 && grupCatatanTampil.length === 0
+      ? '<div class="empty-state notes-empty">Tidak ada grup/catatan yang cocok.</div>'
+      : ''
 
   return `
     <section class="card notes-card">
@@ -145,7 +175,15 @@ function notesTemplate({ grupCatatan, grupAktifId, formGrupTerbuka, draftNamaGru
       `
           : ''
       }
+      ${
+        totalGrup > 2
+          ? `
+        <input class="input search-input notes-search" data-bind="searchCatatan" value="${esc(searchCatatan)}" placeholder="🔍 Cari grup / isi catatan…" />
+      `
+          : ''
+      }
       <div class="chip-row">${chips}</div>
+      ${noMatch}
       <div class="notes-body">
         <textarea class="textarea" data-bind="catatanAktif" placeholder="Tulis catatan di sini…" autocomplete="off">${esc(catatanAktif)}</textarea>
         <div class="notes-caption">Tersimpan otomatis. Grup: <strong>${esc(grupAktifNama)}</strong></div>
@@ -193,7 +231,10 @@ export function dashboardTemplate(vm) {
         `
             : ''
         }
-        <footer class="app-footer">Web keseharian — dibuat untuk dipakai tiap hari</footer>
+        <footer class="app-footer">
+          Web keseharian — dibuat untuk dipakai tiap hari
+          <div class="storage-note">Data tersimpan di browser ini saja — pakai ⬇ Export untuk backup rutin.</div>
+        </footer>
       </div>
     </div>
     ${toastTemplate(vm.notif)}

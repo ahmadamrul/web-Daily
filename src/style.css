@@ -342,8 +342,30 @@ button {
   color: var(--accent);
 }
 
+.swatch-row {
+  display: flex;
+  gap: 6px;
+}
+
+.swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  box-shadow: 0 0 0 1px var(--input-border);
+}
+.swatch.active {
+  border-color: var(--text);
+}
+
 .section {
   margin-top: 36px;
+}
+
+.search-input {
+  width: 100%;
+  margin-bottom: 4px;
 }
 
 /* ---------- links ---------- */
@@ -396,6 +418,35 @@ button {
   width: 24px;
   height: 24px;
   font-size: 16px;
+}
+
+.drag-handle {
+  cursor: grab;
+  opacity: 0.35;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text);
+  user-select: none;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.link-card > .drag-handle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+.link-card:hover > .drag-handle {
+  opacity: 0.7;
+}
+
+[data-drag].dragging {
+  opacity: 0.4;
+}
+[data-drag].drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
 }
 
 /* ---------- two-column area ---------- */
@@ -496,6 +547,20 @@ button {
   padding: 8px 16px;
 }
 
+.notes-search {
+  margin-top: 14px;
+  background: #fffdf8;
+  border: 1px solid #d9cfba;
+  color: #2b2418;
+  font-size: 14px;
+  padding: 8px 10px;
+}
+
+.notes-empty {
+  color: #fffdf8;
+  opacity: 0.75;
+}
+
 .chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -576,6 +641,12 @@ html.dark .chip.active {
   text-align: center;
   font-size: 13px;
   color: var(--placeholder);
+}
+
+.storage-note {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.8;
 }
 
 /* ---------- toast ---------- */

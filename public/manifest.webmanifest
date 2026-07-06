@@ -1,0 +1,17 @@
+{
+  "name": "Web Keseharian",
+  "short_name": "Keseharian",
+  "description": "Dashboard harian personal: link cepat, to-do, dan catatan.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f1e6",
+  "theme_color": "#c0552f",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
